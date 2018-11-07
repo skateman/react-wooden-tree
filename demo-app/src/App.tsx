@@ -96,6 +96,7 @@ class App extends React.Component<{}, AppState> {
                 data={this.state.tree}
                 onDataChange={this.onDataChange}
                 lazyLoad={this.lazyLoad}
+                accessibility={true}
             />
           </div>
         );

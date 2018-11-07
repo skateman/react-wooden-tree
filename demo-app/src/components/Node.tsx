@@ -51,6 +51,7 @@ export interface ParentData {
 
     // Other
     checkboxFirst: boolean;            // < Determines the order of the icon and the checkbox.
+    accessibility: boolean;
 }
 
 /**
@@ -130,8 +131,12 @@ export class Node extends React.Component<NodeProps, {}> {
      * @returns {JSX.Element}
      */
     public render () {
+
+        // Indent size - it has multiple usages.
+        let indentSize = this.getItemIndentSize();
+
         // Indent class
-        let NodeClasses = 'indent-' + this.getItemIndentSize();
+        let NodeClasses = 'indent-' + indentSize;
 
         // Checkbox
         const checkbox = !this.props.hideCheckbox && this.props.parentData.showCheckbox ? (
@@ -230,18 +235,37 @@ export class Node extends React.Component<NodeProps, {}> {
         }
 
         // Data Attributes list
-        let DataAttr: {[k: string]: string} = {'data-id': this.props.nodeId};
+        let DataAttr: {[k: string]: string} = {
+            'data-id': this.props.nodeId,
+            ...this.props.attr
+        };
+
+        // Accessibility props
+        let accessibilityProps: {[k: string]: string | number | boolean} = null;
+        if ( this.props.parentData.accessibility ) {
+            accessibilityProps = {
+                'role': 'treeitem',
+                'tabIndex': -1,
+                'aria-level': indentSize + 1,
+                'aria-expanded': ( this.props.nodes && this.props.nodes.length > 0 )
+                    ? this.props.state.expanded : null
+            };
+        }
 
         return (
             <React.Fragment>
-                <li className={NodeClasses} {...DataAttr} {...this.props.attr}>
+                <li
+                    {...accessibilityProps}
+                    className={NodeClasses}
+                    {...DataAttr}
+                >
                     {openButton}
                     {icon1}
                     {selectedIcon}
                     {icon2}
-                    {/* TODO Somehow remove span but prevent change if clicked on expand or check button */}
                     <span onClick={this.handleSelected}>{this.props.text}</span>
                 </li>
+                {/* As the sublist does not contain ul item, we don't have group role.*/}
                 {sublist}
             </React.Fragment>
         );

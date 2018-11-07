@@ -4,7 +4,7 @@ import './Tree.css';
 import { defVal } from './Helpers';
 
 export interface TreeProps {
-    data: NodeProps[];                 // < The definitions of the tree nodes.
+    data: NodeProps[];                  // < The definitions of the tree nodes.
 
     // Checkbox
     showCheckbox?: boolean;             // < Option: whenever the checkboxes are displayed.
@@ -33,6 +33,10 @@ export interface TreeProps {
     changedCheckboxClass?: string;      // < Extra class for the changed checkbox nodes.
     selectedClass?: string;             // < Extra class for the selected nodes.
 
+    // Accessibility
+    treeLabelId?: string;               // < Gives the ID to he element, where the tree function is described.
+    accessibility?: boolean;            // < If enabled then generates accessibility elements as well.
+
     // Callbacks
     /**
      * All changes made in the tree will be propagated upwards.
@@ -43,7 +47,7 @@ export interface TreeProps {
      * @param {boolean} newValue The newly assigned value.
      */
     onDataChange: (nodeId: string, dataType: string, newValue: any) => void;
-    
+
     /**
      * The function which will be called when a lazily loadable node is
      * expanded first time.
@@ -309,14 +313,18 @@ export class Tree extends React.Component<TreeProps, TreeState> {
      */
     public render(): JSX.Element {
         return (
-            <div className="Tree">
-                <ul>
+            <React.Fragment>
+                <ul
+                    className="Tree"
+                    aria-labelledby={this.props.treeLabelId}
+                    role={'tree'}
+                >
                     {Node.renderSublist(this.props.data, this.parentData)}
                 </ul>
                 <style>
                     {Tree.generateIndentCSS(Tree.getDepth(this.props.data))}
                 </style>
-            </div>
+            </React.Fragment>
         );
     }
 
@@ -355,6 +363,9 @@ export class Tree extends React.Component<TreeProps, TreeState> {
             // Styling
             changedCheckboxClass: this.props.changedCheckboxClass,
             selectedClass: this.props.selectedClass,
+
+            // Accessibility
+            accessibility: this.props.accessibility,
 
             // Other
             checkboxFirst: this.props.checkboxFirst,
@@ -573,6 +584,10 @@ Tree.defaultProps = {
     // Styling
     changedCheckboxClass: 'changed-checkbox',
     selectedClass: 'selected',
+
+    // Accessibility
+    treeLabelId: '',
+    accessibility: true,
 
     // Callbacks
     onDataChange: null,
