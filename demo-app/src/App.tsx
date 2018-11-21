@@ -30,7 +30,8 @@ class App extends React.Component<{}, AppState> {
 
         this.data = Tree.initTree(generator());
 
-        console.log(Tree.nodeSearch(this.data, null, 'data-random', 'random'));
+        console.log('Node search result:',
+            Tree.nodeSearch(this.data, null, 'data-random', 'random'));
 
         this.state = {
             tree: this.data,
@@ -84,7 +85,11 @@ class App extends React.Component<{}, AppState> {
     render() {
         return (
           <div className="App">
+            <div id="tree-label">
+                <p>A test tree</p>
+            </div>
             <Tree
+                treeLabelId={'tree-label'}
                 hierarchicalCheck={true}
                 showCheckbox={true}
                 multiSelect={false}

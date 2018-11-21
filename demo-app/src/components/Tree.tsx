@@ -2,6 +2,13 @@ import * as React from 'react';
 import { Node, NodeProps, ParentData } from './Node';
 import './Tree.css';
 import { defVal } from './Helpers';
+// @ts-ignore
+import keydown, { Keys } from 'react-keydown';
+
+/**
+ * Constants for key catch and identification
+ */
+const { ENTER, UP, DOWN, LEFT, RIGHT, HOME, END } = Keys;
 
 export interface TreeProps {
     data: NodeProps[];                  // < The definitions of the tree nodes.
@@ -80,6 +87,11 @@ export class Tree extends React.Component<TreeProps, TreeState> {
     private selectedNode: string;
 
     /**
+     * Stores the currently focused node id.
+     */
+    private focusedNodeId: string;
+
+    /**
      * Generates the IDs and states for all nodes recursively.
      * The IDs are crucial for the tree to work.
      * The state is needed to avoid not defined exceptions.
@@ -114,6 +126,18 @@ export class Tree extends React.Component<TreeProps, TreeState> {
             }
         }
         return treeCopy;
+    }
+
+    /**
+     * Splits the nodeId to array of integers which give the exact position in the tree.
+     *
+     * @param nodeId The nodeId to split to array of integers.
+     * @return Array of integers.
+     */
+    public static nodeIdSplit(nodeId: string): number[] {
+        return nodeId.split('.').map(function(id: string) {
+            return parseInt(id, 10);
+        });
     }
 
     /**
@@ -162,12 +186,31 @@ export class Tree extends React.Component<TreeProps, TreeState> {
      * @bug Doesn't checks the validity of the nodeId.
      */
     public static nodeSelector(tree: NodeProps[], nodeId: string): NodeProps {
-        let path: number[] = nodeId.split('.').map(function(id: string) {
-            return parseInt(id, 10);
-        });
+        let path = Tree.nodeIdSplit(nodeId);
 
         let node = tree[path[0]];
         for (let i = 1; i < path.length; i++) {
+            node = node.nodes[path[i]];
+        }
+
+        return node;
+    }
+
+    /**
+     * Searches for the node's parent from nodeId, and returns it.
+     * Search is done by walking the tree by index numbers got form the nodeId.
+     * Of the nodeId is top level node then returns the node for that id.
+     *
+     * @param {NodeProps[]} tree The tree which to look in the node for.
+     * @param {string} nodeId The nodeId of the searched node.
+     * @returns {NodeProps}
+     * @bug Doesn't checks the validity of the nodeId.
+     */
+    public static parentNodeSelector(tree: NodeProps[], nodeId: string): NodeProps {
+        let path = Tree.nodeIdSplit(nodeId);
+
+        let node = tree[path[0]];
+        for (let i = 1; i < path.length - 1; i++) {
             node = node.nodes[path[i]];
         }
 
@@ -307,16 +350,54 @@ export class Tree extends React.Component<TreeProps, TreeState> {
     }
 
     /**
+     * If the node is initialized by the rules (X.Y.Z...) then gets the previous
+     * id to the node. If the node is the first node, then returns the same.
+     *
+     * If the node not top level and is first among the siblings, then the parent
+     * node is returned.
+     *
+     * @param nodeId The nodeId to get previous node for.
+     * @return The previous nodeId is returned.
+     */
+    private static previousNode(nodeId: string): string {
+        let path = Tree.nodeIdSplit(nodeId);
+
+        // Top level
+        if ( path.length === 1 ) {
+            if ( path[0] > 0 ) {
+                return String(path[0] - 1);
+            } else {
+                return nodeId;
+            }
+        }
+
+        // Not top level
+        if ( path[path.length - 1] > 0 ) {
+            path[path.length - 1] -= 1; // Move to previous
+            return String(path.join('.'));
+        } else {
+            path.splice(-1, 1);
+            return String(path.join('.'));
+        }
+    }
+
+    /**
      * Renders the tree element.
      *
      * @returns {JSX.Element}
      */
     public render(): JSX.Element {
+
+        let areaLabel = null;
+        if ( this.props.treeLabelId ) {
+            areaLabel = {'aria-labelledby': this.props.treeLabelId};
+        }
+
         return (
             <React.Fragment>
                 <ul
                     className="Tree"
-                    aria-labelledby={this.props.treeLabelId}
+                    {...areaLabel}
                     role={'tree'}
                 >
                     {Node.renderSublist(this.props.data, this.parentData)}
@@ -328,6 +409,33 @@ export class Tree extends React.Component<TreeProps, TreeState> {
         );
     }
 
+    @keydown(ENTER, UP, DOWN, LEFT, RIGHT, HOME, END, 106)
+    // @ts-ignore
+    private keyDown(event: keydown) {
+        switch ( event.which ) {
+            case ENTER:
+                console.log('Enter');
+                break;
+            case UP:
+                this.focusedNodeId = Tree.previousNode(this.focusedNodeId);
+                break;
+            case DOWN:
+                break;
+            case LEFT:
+                break;
+            case RIGHT:
+                break;
+            case HOME:
+                break;
+            case END:
+                break;
+            case 106:
+                break;
+            default:
+                console.error('Invalid key in keydown event.');
+        }
+    }
+
     /**
      * Constructor.
      * @param {TreeProps} props
@@ -337,6 +445,9 @@ export class Tree extends React.Component<TreeProps, TreeState> {
 
         // Default values
         this.selectedNode = null;
+
+        // The default focus is on the first node.
+        this.focusedNodeId = this.props.data[0].nodeId;
 
         this.parentData = {
             // Callbacks
