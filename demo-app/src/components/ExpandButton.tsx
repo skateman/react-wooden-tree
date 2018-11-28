@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { NodeProps } from './Node';
 
 export interface ExpandButtonProps {
     onChange: (checked: boolean) => void;
@@ -11,7 +12,7 @@ export interface ExpandButtonProps {
 }
 
 export interface ExpandButtonOnChange {
-    (nodeId: string, opened: boolean): void;
+    (node: NodeProps, opened: boolean): void;
 }
 
 export class ExpandButton extends React.Component<ExpandButtonProps, {}> {

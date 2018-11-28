@@ -13,7 +13,7 @@ export interface NodeState {
 }
 
 export interface SelectOnChange {
-    (nodeId: string, selected: boolean): void;
+    (node: NodeProps): void;
 }
 
 export interface OnLazyLoad {
@@ -83,6 +83,7 @@ export interface NodeProps {
 
     // Private
     parentData?: ParentData;
+    reference?: React.RefObject<HTMLLIElement>;
 }
 
 /**
@@ -252,10 +253,17 @@ export class Node extends React.Component<NodeProps, {}> {
             };
         }
 
+        // Refeences
+        let ref = null;
+        if ( this.props.reference ) {
+            ref = {'ref': this.props.reference};
+        }
+
         return (
             <React.Fragment>
                 <li
                     {...accessibilityProps}
+                    {...ref}
                     className={NodeClasses}
                     {...DataAttr}
                 >
@@ -294,9 +302,7 @@ export class Node extends React.Component<NodeProps, {}> {
      * @param {boolean} checked Contains the input field value.
      */
     private handleCheckChange(checked: boolean): void {
-        if ( this.props.checkable && !this.props.state.disabled ) {
-            this.props.parentData.checkboxOnChange(checked, this.props.nodeId);
-        }
+        this.props.parentData.checkboxOnChange(this.props, checked);
     }
 
     /**
@@ -306,11 +312,7 @@ export class Node extends React.Component<NodeProps, {}> {
      * @param {boolean} expanded True on expand false on collapse.
      */
     private handleOpenChange(expanded: boolean): void {
-        if ( this.props.lazyLoad && this.props.nodes === null ) {
-            this.props.parentData.onLazyLoad(this.props.nodeId);
-        }
-
-        this.props.parentData.expandOnChange(this.props.nodeId, expanded);
+        this.props.parentData.expandOnChange(this.props, expanded);
     }
 
     /**
@@ -318,9 +320,7 @@ export class Node extends React.Component<NodeProps, {}> {
      * function with the opposite of currently selected state.
      */
     private handleSelected(): void {
-        if ( this.props.selectable && !this.props.state.disabled ) {
-            this.props.parentData.selectOnChange(this.props.nodeId, !this.props.state.selected);
-        }
+        this.props.parentData.selectOnChange(this.props);
     }
 
     /**

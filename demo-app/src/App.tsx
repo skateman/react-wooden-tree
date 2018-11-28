@@ -28,7 +28,7 @@ class App extends React.Component<{}, AppState> {
     constructor(props: {}) {
         super(props);
 
-        this.data = Tree.initTree(generator());
+        this.data = Tree.initTree(generator(), '', true);
 
         console.log('Node search result:',
             Tree.nodeSearch(this.data, null, 'data-random', 'random'));
@@ -74,7 +74,7 @@ class App extends React.Component<{}, AppState> {
         return new Promise((resolve, reject) => {
             setTimeout(() => {
                 if ( isWorking ) {
-                    resolve(generator());
+                    resolve(Tree.initTree(generator(), node.nodeId, true));
                 } else {
                     reject(new Error('Something happened.'));
                 }

@@ -1,10 +1,11 @@
 import * as React from 'react';
+import { NodeProps } from './Node';
 
 /**
  * Callback function for CheckboxButton.
  */
 export interface CheckboxButtonOnChange {
-    (checked: boolean, nodeId: string): void;
+    (node: NodeProps, checked: boolean): void;
 }
 
 /**

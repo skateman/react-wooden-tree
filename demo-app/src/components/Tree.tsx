@@ -59,7 +59,7 @@ export interface TreeProps {
      * The function which will be called when a lazily loadable node is
      * expanded first time.
      *
-     * @param {NodeProps} node The node of the node which has to be loaded.
+     * @param {NodeProps} node The node which children has to be loaded.
      * @returns {Promise<NodeProps[]>} Promise about the children of the given node.
      */
     lazyLoad?: (node: NodeProps) => Promise<NodeProps[]>;
@@ -95,12 +95,14 @@ export class Tree extends React.Component<TreeProps, TreeState> {
      * Generates the IDs and states for all nodes recursively.
      * The IDs are crucial for the tree to work.
      * The state is needed to avoid not defined exceptions.
+     * The accessibility needed to be able change focus by keyboard.
      *
      * @param {NodeProps[]} tree The tree to fill the IDs up.
      * @param {string} parentID The parent nodeId of the current nodes. For root left this param out.
+     * @param {boolean} accessibility Set true if want to browse the tree by keyboard. Generates refs.
      * @returns {NodeProps[]} The new filled tree.
      */
-    public static initTree(tree: NodeProps[], parentID: string = ''): NodeProps[] {
+    public static initTree(tree: NodeProps[], parentID: string = '', accessibility: boolean = false): NodeProps[] {
         let treeCopy = tree.slice();
 
         for (let i = 0; i < treeCopy.length; i++) {
@@ -114,6 +116,10 @@ export class Tree extends React.Component<TreeProps, TreeState> {
                 treeCopy[i].state = {};
             }
 
+            if ( accessibility ) {
+                treeCopy[i].reference = React.createRef();
+            }
+
             treeCopy[i].state = {
                 checked: defVal(treeCopy[i].state.checked, false),
                 expanded: defVal(treeCopy[i].state.expanded, false),
@@ -122,7 +128,7 @@ export class Tree extends React.Component<TreeProps, TreeState> {
             };
 
             if ( treeCopy[i].nodes ) {
-                treeCopy[i].nodes = Tree.initTree(treeCopy[i].nodes, treeCopy[i].nodeId);
+                treeCopy[i].nodes = Tree.initTree(treeCopy[i].nodes, treeCopy[i].nodeId, accessibility);
             }
         }
         return treeCopy;
@@ -183,7 +189,7 @@ export class Tree extends React.Component<TreeProps, TreeState> {
      * @param {NodeProps[]} tree The tree which to look in the node for.
      * @param {string} nodeId The nodeId of the searched node.
      * @returns {NodeProps}
-     * @bug Doesn't checks the validity of the nodeId.
+     * @warning Doesn't checks the validity of the nodeId.
      */
     public static nodeSelector(tree: NodeProps[], nodeId: string): NodeProps {
         let path = Tree.nodeIdSplit(nodeId);
@@ -199,12 +205,12 @@ export class Tree extends React.Component<TreeProps, TreeState> {
     /**
      * Searches for the node's parent from nodeId, and returns it.
      * Search is done by walking the tree by index numbers got form the nodeId.
-     * Of the nodeId is top level node then returns the node for that id.
+     * If the nodeId is top level node then returns the node for that id.
      *
      * @param {NodeProps[]} tree The tree which to look in the node for.
      * @param {string} nodeId The nodeId of the searched node.
-     * @returns {NodeProps}
-     * @bug Doesn't checks the validity of the nodeId.
+     * @returns {NodeProps} The parent node.
+     * @warning Doesn't checks the validity of the nodeId.
      */
     public static parentNodeSelector(tree: NodeProps[], nodeId: string): NodeProps {
         let path = Tree.nodeIdSplit(nodeId);
@@ -218,11 +224,39 @@ export class Tree extends React.Component<TreeProps, TreeState> {
     }
 
     /**
+     * Searches the node's siblings and returns them (included the given node).
+     * If the nodeId is top level, then returns all top level nodes.
+     *
+     * @param {NodeProps[]} tree The tree in which too look for the nodes.
+     * @param {string} nodeId The node ID to get the siblings for.
+     * @returns {NodeProps[]} The node siblings, given node included.
+     */
+    public static siblingsNodeSelector(tree: NodeProps[], nodeId: string): NodeProps[] {
+        let path = Tree.nodeIdSplit(nodeId);
+
+        if ( path.length === 1 ) {
+            return tree;
+        }
+
+        return Tree.parentNodeSelector(tree, nodeId).nodes;
+    }
+
+    /**
+     * Sets the focus on the given node. Validates.
+     *
+     * @param {NodeProps} node The node to set focus to.
+     */
+    public static setFocus(node: NodeProps): void {
+        node.reference.current.focus();
+    }
+
+    /**
      * Updates the given node's reference in the tree.
      *
      * @param {NodeProps[]} tree Where the node will be updated.
      * @param {NodeProps} node The node to put reference in the tree.
-     * @bug Doesn't checks the validity of the node's nodeId.
+     * @returns The new tree.
+     * @warning Doesn't checks the validity of the node's nodeId.
      */
     public static nodeUpdater(tree: NodeProps[], node: NodeProps): NodeProps[] {
         let newTree: NodeProps[] = [...tree];
@@ -350,22 +384,40 @@ export class Tree extends React.Component<TreeProps, TreeState> {
     }
 
     /**
+     * Returns the last visible child to a node. Meaning the visually last
+     * node which is under the given node.
+     *
+     * @param node The node to get the last visible child.
+     * @returns {NodeProps} The last expanded node.
+     */
+    private static getLastVisible(node: NodeProps): NodeProps {
+        if ( !node.state.expanded ) {
+            return node;
+        }
+
+        return Tree.getLastVisible(node.nodes[node.nodes.length - 1]);
+    }
+
+    /**
      * If the node is initialized by the rules (X.Y.Z...) then gets the previous
      * id to the node. If the node is the first node, then returns the same.
      *
-     * If the node not top level and is first among the siblings, then the parent
+     * If the node is not top level and is first among the siblings, then the parent
      * node is returned.
      *
-     * @param nodeId The nodeId to get previous node for.
-     * @return The previous nodeId is returned.
+     * @param {string} nodeId The nodeId to get previous node for.
+     * @param {NodeProps[]} tree The tree to search the previous node.
+     * @return The previous nodeId.
      */
-    private static previousNode(nodeId: string): string {
+    private static previousNode(tree: NodeProps[], nodeId: string): string {
         let path = Tree.nodeIdSplit(nodeId);
 
         // Top level
         if ( path.length === 1 ) {
             if ( path[0] > 0 ) {
-                return String(path[0] - 1);
+                // Check recursively if the previous node is expanded
+                // and return the last node od the previous node.
+                return Tree.getLastVisible(Tree.nodeSelector(tree, String(path[0] - 1))).nodeId;
             } else {
                 return nodeId;
             }
@@ -374,11 +426,59 @@ export class Tree extends React.Component<TreeProps, TreeState> {
         // Not top level
         if ( path[path.length - 1] > 0 ) {
             path[path.length - 1] -= 1; // Move to previous
-            return String(path.join('.'));
+
+            // Check recursively if the previous node is expanded
+            // and return the last node od the previous node.
+            return Tree.getLastVisible(Tree.nodeSelector(tree, path.join('.'))).nodeId;
         } else {
-            path.splice(-1, 1);
+            path.splice(-1, 1); // Move to parent node
             return String(path.join('.'));
         }
+    }
+
+    /**
+     * If the node is initialized by the rules (X.Y.Z...) then gets the next
+     * id to the node. If the node is the last, then returns the same.
+     *
+     * If the node is not top level and is last among the siblings, then the next
+     * to parent node is returned.
+     *
+     * @param {NodeProps[]} tree The tree in which the nodes are stored.
+     * @param {string} nodeId The nodeId to get the next node for.
+     * @param {boolean} recursive If set true then its called recursive and wont jum into children.
+     * @return The next nodeId.
+     */
+    private static nextNode(tree: NodeProps[], nodeId: string, recursive: boolean = false): string {
+        if ( !recursive ) {
+            // If has child, then return the first.
+            let node = Tree.nodeSelector(tree, nodeId);
+            if (node.state.expanded && node.nodes) {
+                return node.nodes[0].nodeId;
+            }
+        }
+
+        // Select the next sibling node
+        let path = Tree.nodeIdSplit(nodeId);
+
+        // Top level
+        if ( path.length === 1 ) {
+            if ( path[0] < tree.length - 1 ) {
+                return String(path[0] + 1);
+            } else {
+                return nodeId;
+            }
+        }
+
+        let parentNode = this.parentNodeSelector(tree, nodeId);
+
+        // Not top level
+        if ( path[path.length - 1] < parentNode.nodes.length - 1 ) {
+            path[path.length - 1] += 1; // Move to next
+            return String(path.join('.'));
+        } else {
+            return Tree.nextNode(tree, parentNode.nodeId, true);
+        }
+
     }
 
     /**
@@ -409,27 +509,53 @@ export class Tree extends React.Component<TreeProps, TreeState> {
         );
     }
 
+    /**
+     * Captures keydown events and allows to navigate trough the tree.
+     * @param event The keydown event.
+     */
     @keydown(ENTER, UP, DOWN, LEFT, RIGHT, HOME, END, 106)
     // @ts-ignore
     private keyDown(event: keydown) {
+        let node: NodeProps = null;
+
         switch ( event.which ) {
             case ENTER:
-                console.log('Enter');
+                node = Tree.nodeSelector(this.props.data, this.focusedNodeId);
+                this.changeSelect(node);
                 break;
             case UP:
-                this.focusedNodeId = Tree.previousNode(this.focusedNodeId);
+                this.focusedNodeId = Tree.previousNode(this.props.data, this.focusedNodeId);
+                node = Tree.nodeSelector(this.props.data, this.focusedNodeId);
+                Tree.setFocus(node);
                 break;
             case DOWN:
+                this.focusedNodeId = Tree.nextNode(this.props.data, this.focusedNodeId);
+                node = Tree.nodeSelector(this.props.data, this.focusedNodeId);
+                Tree.setFocus(node);
                 break;
             case LEFT:
+                node = Tree.nodeSelector(this.props.data, this.focusedNodeId);
+                this.changeExpand(node, false);
                 break;
             case RIGHT:
+                node = Tree.nodeSelector(this.props.data, this.focusedNodeId);
+                this.changeExpand(node, true);
                 break;
             case HOME:
+                this.focusedNodeId = this.props.data[0].nodeId;
+                node = Tree.nodeSelector(this.props.data, this.focusedNodeId);
+                Tree.setFocus(node);
                 break;
             case END:
+                this.focusedNodeId = this.props.data[this.props.data.length - 1].nodeId;
+                node = Tree.nodeSelector(this.props.data, this.focusedNodeId);
+                Tree.setFocus(node);
                 break;
             case 106:
+                let siblings = Tree.siblingsNodeSelector(this.props.data, this.focusedNodeId);
+                for ( let sibling of siblings ) {
+                    this.changeExpand(sibling, true);
+                }
                 break;
             default:
                 console.error('Invalid key in keydown event.');
@@ -449,12 +575,18 @@ export class Tree extends React.Component<TreeProps, TreeState> {
         // The default focus is on the first node.
         this.focusedNodeId = this.props.data[0].nodeId;
 
+        this.changeCheckbox = this.changeCheckbox.bind(this);
+        this.changeExpand = this.changeExpand.bind(this);
+        this.changeSelect = this.changeSelect.bind(this);
+        this.lazyLoad = this.lazyLoad.bind(this);
+        this.initSelectedNode = this.initSelectedNode.bind(this);
+
         this.parentData = {
             // Callbacks
-            checkboxOnChange: this.handleCheckboxChange,
-            expandOnChange: this.handleExpandedChange,
-            selectOnChange: this.handleSelectedChange,
-            onLazyLoad: this.handleLazyLoad,
+            checkboxOnChange: this.changeCheckbox,
+            expandOnChange: this.changeExpand,
+            selectOnChange: this.changeSelect,
+            onLazyLoad: this.lazyLoad,
             showCheckbox: this.props.showCheckbox,
             initSelectedNode: this.initSelectedNode,
 
@@ -562,11 +694,18 @@ export class Tree extends React.Component<TreeProps, TreeState> {
     /**
      * Handles checkbox change if made on checkbox.
      *
+     * @param {NodeProps} node The node which checkbox was changed.
      * @param {boolean} checked The checkbox new state.
-     * @param {string} nodeId The element which checkbox was changed.
      */
-    private handleCheckboxChange = (checked: boolean, nodeId: string): void => {
-        let node: NodeProps = Tree.nodeSelector(this.props.data, nodeId);
+    private changeCheckbox(node: NodeProps, checked: boolean): void {
+        if ( node.checkable === undefined ) {
+            node.checkable = Node.defaultProps.checkable;
+        }
+
+        if ( !node.checkable || node.state.disabled ) {
+            return;
+        }
+
         this.nodeCheckboxChange(checked, node, true);
     }
 
@@ -574,21 +713,25 @@ export class Tree extends React.Component<TreeProps, TreeState> {
      * Handles the expanding and collapsing elements.
      * Passes to the onDataChange function.
      *
-     * @param {string} nodeId The nodeId of node which has changed.
-     * @param {boolean} expanded The current state
+     * @param {NodeProps} node The node which has changed.
+     * @param {boolean} expanded The new expanded state
      */
-    private handleExpandedChange = (nodeId: string, expanded: boolean): void => {
-        this.props.onDataChange(nodeId, 'state.expanded', expanded);
+    private changeExpand(node: NodeProps, expanded: boolean): void {
+        if ( node.lazyLoad && !node.nodes ) {
+            this.lazyLoad(node.nodeId);
+        }
+
+        this.props.onDataChange(node.nodeId, 'state.expanded', expanded);
     }
 
     /**
-     * When constructing the node this function is called if the node is selectet.
+     * When constructing the node this function is called if the node is selected.
      * If more than one node is selected and multi-select is not allowed then the first one
      * will be kept, the others will be unselected.
      *
      * @param {string} nodeId The nodeId of the currently rendering node.
      */
-    private initSelectedNode = (nodeId: string): void => {
+    private initSelectedNode(nodeId: string): void {
         if ( !this.props.multiSelect ) {
             if ( this.selectedNode != null ) {
                 this.props.onDataChange(nodeId, 'state.selected', false);
@@ -605,15 +748,23 @@ export class Tree extends React.Component<TreeProps, TreeState> {
      *
      * If preventDeselect is active then all deselecting actions are skipped.
      *
-     * @param {string} nodeId The nodeId of the node which was selected/deselected.
-     * @param {boolean} selected The new state of the node.
+     * @param {NodeProps} node The node which was selected/deselected.
      */
-    private handleSelectedChange = (nodeId: string, selected: boolean): void => {
+    private changeSelect(node: NodeProps): void {
+        if ( node.selectable === undefined ) {
+            node.selectable = Node.defaultProps.selectable;
+        }
+
+        if ( !node.selectable || node.state.disabled ) {
+            return;
+        }
+
+        let selected = !node.state.selected;
 
         // Preventing deselect but if re-select is active then simulating select.
         if ( this.props.preventDeselect && !selected ) {
             if ( this.props.allowReselect ) {
-                this.props.onDataChange(nodeId, 'state.selected', true);
+                this.props.onDataChange(node.nodeId, 'state.selected', true);
             }
         } else if ( !this.props.multiSelect && selected ) {
 
@@ -622,11 +773,11 @@ export class Tree extends React.Component<TreeProps, TreeState> {
                 this.props.onDataChange(this.selectedNode, 'state.selected', false);
             }
             // Select the new
-            this.props.onDataChange(nodeId, 'state.selected', true);
-            this.selectedNode = nodeId;
+            this.props.onDataChange(node.nodeId, 'state.selected', true);
+            this.selectedNode = node.nodeId;
 
         } else {
-            this.props.onDataChange(nodeId, 'state.selected', selected);
+            this.props.onDataChange(node.nodeId, 'state.selected', selected);
             this.selectedNode = null;
         }
     }
@@ -636,9 +787,8 @@ export class Tree extends React.Component<TreeProps, TreeState> {
      *
      * @param {string} nodeId The node nodeId which is about lazy load.
      */
-    private handleLazyLoad = (nodeId: string): void => {
+    private lazyLoad(nodeId: string): void {
         let node = Tree.nodeSelector(this.props.data, nodeId);
-        // if ( node == null ) { return; } Unreachable
 
         // If not function defined return empty and set to error
         if ( this.props.lazyLoad == null ) {
@@ -651,7 +801,6 @@ export class Tree extends React.Component<TreeProps, TreeState> {
         this.props.onDataChange(nodeId, 'loading', true);
 
         this.props.lazyLoad(node).then((data: NodeProps[]) => {
-            Tree.initTree(data, nodeId);
             this.props.onDataChange(nodeId, 'nodes', data);
 
             // Remove loading icon

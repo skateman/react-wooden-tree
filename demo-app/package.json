@@ -4,8 +4,8 @@
   "private": true,
   "dependencies": {
     "font-awesome": "^4.7.0",
-    "react": "^16.2.0",
-    "react-dom": "^16.2.0",
+    "react": "^16.6.3",
+    "react-dom": "^16.6.3",
     "react-keydown": "^1.9.7"
   },
   "scripts": {
@@ -17,15 +17,15 @@
     "eject": "react-scripts-ts eject"
   },
   "devDependencies": {
-    "@types/jest": "^22.1.3",
-    "@types/node": "^9.4.6",
-    "@types/react": "^16.0.38",
-    "@types/react-dom": "^16.0.4",
-    "@types/react-test-renderer": "^16.0.1",
+    "@types/jest": "^23.3.9",
+    "@types/node": "^10.12.10",
+    "@types/react": "^16.7.7",
+    "@types/react-dom": "^16.0.11",
+    "@types/react-test-renderer": "^16.0.3",
     "react-scripts-ts": "^4.0.8",
-    "react-test-renderer": "^16.2.0",
-    "serve": "^10.0.2",
-    "typescript": "^2.7.2"
+    "react-test-renderer": "^16.6.3",
+    "serve": "^10.1.1",
+    "typescript": "^3.1.6"
   },
   "jest": {
     "collectCoverageFrom": [
